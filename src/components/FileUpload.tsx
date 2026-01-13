@@ -36,31 +36,31 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const colors = colorClasses[colorScheme];
 
   return (
-    <div className="glass-card p-6 rounded-2xl">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="text-3xl">{type === "electric" ? "⚡" : "🔥"}</div>
-        <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+    <div className="glass-card p-4 rounded-xl">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="text-2xl">{type === "electric" ? "⚡" : "🔥"}</div>
+        <h2 className="text-base font-bold text-gray-800">{title}</h2>
       </div>
       <input
         type="file"
         accept=".csv"
         onChange={onFileUpload}
-        className={`block w-full text-sm text-gray-700 file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-bold ${colors.file} cursor-pointer`}
+        className={`block w-full text-xs text-gray-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold ${colors.file} cursor-pointer`}
       />
       {loading && (
-        <p className="mt-3 text-sm loading-text font-semibold">
+        <p className="mt-2 text-xs loading-text font-semibold">
           Loading data...
         </p>
       )}
-      {error && <p className="mt-3 text-sm error-message">⚠️ Error: {error}</p>}
+      {error && <p className="mt-2 text-xs error-message">⚠️ Error: {error}</p>}
       {dataLength > 0 && (
-        <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-          <p className="text-sm success-message font-semibold">
+        <div className="mt-3 p-2 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+          <p className="text-xs success-message font-semibold">
             ✓ {dataLength} readings loaded
           </p>
           <button
             onClick={onClear}
-            className={`mt-2 text-sm ${colors.button} hover:underline font-semibold`}
+            className={`mt-1.5 text-xs ${colors.button} hover:underline font-semibold`}
           >
             Clear & upload different file
           </button>

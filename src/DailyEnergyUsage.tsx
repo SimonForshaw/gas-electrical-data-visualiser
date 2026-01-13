@@ -11,6 +11,7 @@ import FileUpload from "./components/FileUpload";
 import StatsCards from "./components/StatsCards";
 import EnergyChart from "./components/EnergyChart";
 import DataTable from "./components/DataTable";
+import { ApiConnection } from "./components/ApiConnection";
 
 const DailyEnergyUsage: React.FC = () => {
   const [electricData, setElectricData] = useState<DailyDataPoint[]>([]);
@@ -43,21 +44,31 @@ const DailyEnergyUsage: React.FC = () => {
     useState<number>(1);
   const [gasComparisonMonth, setGasComparisonMonth] = useState<number>(1);
 
-  // Cost per kWh state
+  // Cost per kWh state with default values (in pence, so 28.42p = 0.2842)
   const [electricCostPerKwh, setElectricCostPerKwh] = useState<{
     [year: number]: number;
-  }>({});
+  }>({
+    2024: 0.2842,
+    2025: 0.2842,
+    2026: 0.2842,
+  });
   const [gasCostPerKwh, setGasCostPerKwh] = useState<{
     [year: number]: number;
   }>({});
 
-  // Night Rate state (electricity only)
-  const [electricNightRateEnabled, setElectricNightRateEnabled] = useState<{
-    [year: number]: boolean;
-  }>({});
-  const [electricNightRate, setElectricNightRate] = useState<{
-    [year: number]: number;
-  }>({});
+  // Store total cost from API fetches
+  const [electricTotalCost, setElectricTotalCost] = useState<number | null>(
+    null
+  );
+  const [gasTotalCost, setGasTotalCost] = useState<number | null>(null);
+
+  // Data table visibility state
+  const [showElectricTable, setShowElectricTable] = useState<boolean>(false);
+  const [showGasTable, setShowGasTable] = useState<boolean>(false);
+
+  // Track if data came from API
+  const [electricFromApi, setElectricFromApi] = useState<boolean>(false);
+  const [gasFromApi, setGasFromApi] = useState<boolean>(false);
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -96,58 +107,99 @@ const DailyEnergyUsage: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleApiDataFetched = (
+    data: Array<{ date: string; value: number }>,
+    type: "electric" | "gas",
+    totalCost?: number
+  ) => {
+    if (type === "electric") {
+      setElectricData(data);
+      setElectricTotalCost(totalCost ?? null);
+      setElectricFromApi(true);
+    } else {
+      setGasData(data);
+      setGasTotalCost(totalCost ?? null);
+      setGasFromApi(true);
+    }
+  };
+
   return (
     <div className="app-background p-6 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-3 text-white drop-shadow-lg">
+          <h1 className="text-5xl font-bold mb-3 text-gray-100 drop-shadow-lg">
             ⚡ Energy Usage Tracker
           </h1>
-          <p className="text-white/90 text-lg font-light">
-            Visualize and analyze your electricity and gas consumption
-          </p>
+          <p className="text-gray-300 text-lg font-light"></p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <FileUpload
-            type="electric"
-            title="Electricity Data"
-            loading={loading.electric}
-            error={error.electric}
-            dataLength={electricData.length}
-            onFileUpload={(e) => handleFileUpload(e, "electric")}
-            onClear={() => setElectricData([])}
-            colorScheme="blue"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 items-stretch">
+          <div className="flex flex-col h-full">
+            <div className="flex-1 flex flex-col">
+              <ApiConnection
+                onDataFetched={handleApiDataFetched}
+                energyType="electric"
+                color="blue"
+              />
+            </div>
+            {!electricFromApi && (
+              <FileUpload
+                type="electric"
+                title="Or Upload Electricity CSV"
+                loading={loading.electric}
+                error={error.electric}
+                dataLength={electricData.length}
+                onFileUpload={(e) => handleFileUpload(e, "electric")}
+                onClear={() => setElectricData([])}
+                colorScheme="blue"
+              />
+            )}
+          </div>
 
-          <FileUpload
-            type="gas"
-            title="Gas Data"
-            loading={loading.gas}
-            error={error.gas}
-            dataLength={gasData.length}
-            onFileUpload={(e) => handleFileUpload(e, "gas")}
-            onClear={() => setGasData([])}
-            colorScheme="orange"
-          />
+          <div className="flex flex-col h-full">
+            <div className="flex-1 flex flex-col">
+              <ApiConnection
+                onDataFetched={handleApiDataFetched}
+                energyType="gas"
+                color="orange"
+              />
+            </div>
+            {!gasFromApi && (
+              <FileUpload
+                type="gas"
+                title="Or Upload Gas CSV"
+                loading={loading.gas}
+                error={error.gas}
+                dataLength={gasData.length}
+                onFileUpload={(e) => handleFileUpload(e, "gas")}
+                onClear={() => setGasData([])}
+                colorScheme="orange"
+              />
+            )}
+          </div>
         </div>
 
         {electricData.length === 0 && gasData.length === 0 && (
           <div className="glass-card rounded-2xl p-12 text-center border-2 border-white/50 mx-auto max-w-2xl">
             <div className="text-6xl mb-4">📊</div>
-            <p className="text-gray-800 text-lg font-semibold mb-2">
-              Upload your CSV files to get started
+            <p className="text-gray-600 text-lg font-semibold mb-2">
+              Connect to Octopus Energy API or upload CSV files to get started
             </p>
-            <p className="text-gray-600 text-sm">
+            <p className="text-gray-400 text-sm">
               CSV files should contain half-hourly meter readings with columns
-              for Start, End, and Consumption (kwh).
+              for Start, End, and Consumption (kWh).
             </p>
           </div>
         )}
 
         {electricData.length > 0 && (
-          <div className="max-w-6xl mx-auto">
-            <StatsCards data={electricData} title="Electricity" unit="kWh" />
+          <div className="max-w-5xl mx-auto">
+            <StatsCards
+              data={electricData}
+              title="Electricity"
+              unit="kWh"
+              totalCost={electricTotalCost}
+            />
             <EnergyChart
               data={electricData}
               title="Electricity"
@@ -165,24 +217,61 @@ const DailyEnergyUsage: React.FC = () => {
               setComparisonMonth={setElectricComparisonMonth}
               costPerKwh={electricCostPerKwh}
               setCostPerKwh={setElectricCostPerKwh}
-              nightRateEnabled={electricNightRateEnabled}
-              setNightRateEnabled={setElectricNightRateEnabled}
-              nightRate={electricNightRate}
-              setNightRate={setElectricNightRate}
             />
-            <DataTable
-              data={electricData}
-              title="Electricity"
-              unit="kWh"
-              rowLimit={electricRowLimit}
-              setRowLimit={setElectricRowLimit}
-            />
+
+            {/* Collapsible Data Table */}
+            <div className="mt-4">
+              {!showElectricTable ? (
+                <button
+                  onClick={() => setShowElectricTable(true)}
+                  className="w-full glass-card border border-blue-500/20 bg-blue-500/10 p-3 text-left transition-all hover:scale-[1.02]"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-blue-400 text-base">
+                        📊 View Data Table
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Show detailed electricity consumption data
+                      </p>
+                    </div>
+                    <span className="text-xl text-blue-400">+</span>
+                  </div>
+                </button>
+              ) : (
+                <div className="glass-card border border-blue-500/20 bg-blue-500/10 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-blue-400 text-base">
+                      📊 Electricity Data Table
+                    </h3>
+                    <button
+                      onClick={() => setShowElectricTable(false)}
+                      className="text-gray-400 hover:text-white transition-colors text-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <DataTable
+                    data={electricData}
+                    title="Electricity"
+                    unit="kWh"
+                    rowLimit={electricRowLimit}
+                    setRowLimit={setElectricRowLimit}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {gasData.length > 0 && (
-          <div className="max-w-6xl mx-auto">
-            <StatsCards data={gasData} title="Gas" unit="kWh" />
+          <div className="max-w-5xl mx-auto">
+            <StatsCards
+              data={gasData}
+              title="Gas"
+              unit="kWh"
+              totalCost={gasTotalCost}
+            />
             <EnergyChart
               data={gasData}
               title="Gas"
@@ -201,13 +290,49 @@ const DailyEnergyUsage: React.FC = () => {
               costPerKwh={gasCostPerKwh}
               setCostPerKwh={setGasCostPerKwh}
             />
-            <DataTable
-              data={gasData}
-              title="Gas"
-              unit="kWh"
-              rowLimit={gasRowLimit}
-              setRowLimit={setGasRowLimit}
-            />
+
+            {/* Collapsible Data Table */}
+            <div className="mt-4">
+              {!showGasTable ? (
+                <button
+                  onClick={() => setShowGasTable(true)}
+                  className="w-full glass-card border border-orange-500/20 bg-orange-500/10 p-3 text-left transition-all hover:scale-[1.02]"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-orange-400 text-base">
+                        📊 View Data Table
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Show detailed gas consumption data
+                      </p>
+                    </div>
+                    <span className="text-xl text-orange-400">+</span>
+                  </div>
+                </button>
+              ) : (
+                <div className="glass-card border border-orange-500/20 bg-orange-500/10 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-orange-400 text-base">
+                      📊 Gas Data Table
+                    </h3>
+                    <button
+                      onClick={() => setShowGasTable(false)}
+                      className="text-gray-400 hover:text-white transition-colors text-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <DataTable
+                    data={gasData}
+                    title="Gas"
+                    unit="kWh"
+                    rowLimit={gasRowLimit}
+                    setRowLimit={setGasRowLimit}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -13,12 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import {
-  DailyDataPoint,
-  TimeRange,
-  ComparisonMode,
-  ComparisonDataPoint,
-} from "../types/types";
+import { DailyDataPoint, TimeRange, ComparisonMode } from "../types/types";
 import {
   filterDataByTimeRange,
   getAvailableYears,
@@ -48,10 +43,6 @@ interface EnergyChartProps {
   setComparisonMonth: (month: number) => void;
   costPerKwh: { [year: number]: number };
   setCostPerKwh: (costs: { [year: number]: number }) => void;
-  nightRateEnabled?: { [year: number]: boolean };
-  setNightRateEnabled?: (enabled: { [year: number]: boolean }) => void;
-  nightRate?: { [year: number]: number };
-  setNightRate?: (rates: { [year: number]: number }) => void;
 }
 
 const EnergyChart: React.FC<EnergyChartProps> = ({
@@ -71,16 +62,8 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
   setComparisonMonth,
   costPerKwh,
   setCostPerKwh,
-  nightRateEnabled,
-  setNightRateEnabled,
-  nightRate,
-  setNightRate,
 }) => {
   const [chartType, setChartType] = useState<ChartType>("line");
-
-  // Check if this is electricity (has night rate capability)
-  const hasNightRate =
-    nightRateEnabled !== undefined && setNightRateEnabled !== undefined;
 
   // Get available years for comparison
   const availableYears = useMemo(() => getAvailableYears(data), [data]);
@@ -135,17 +118,8 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
     };
   }, [data]);
 
-  // Check if night rate visualization should be active
-  const shouldShowNightRateVisualization = useMemo(() => {
-    if (!hasNightRate || comparisonMode !== "none" || timeRange !== "daily") {
-      return false;
-    }
-    // Check if night rate is enabled for any year in the current filtered data
-    const years = new Set(
-      filteredData.map((point) => new Date(point.date).getFullYear())
-    );
-    return Array.from(years).some((year) => nightRateEnabled?.[year]);
-  }, [hasNightRate, comparisonMode, timeRange, filteredData, nightRateEnabled]);
+  // Check if night rate visualization should be active (removed - now handled by API)
+  const shouldShowNightRateVisualization = false;
 
   // Split data into night rate and standard rate periods
   const splitDataByRate = useMemo(() => {
@@ -194,70 +168,6 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
       ...costPerKwh,
       [year]: cost,
     });
-  };
-
-  // Handle night rate toggle
-  const toggleNightRate = (year: number) => {
-    if (!setNightRateEnabled) return;
-    setNightRateEnabled({
-      ...nightRateEnabled,
-      [year]: !nightRateEnabled?.[year],
-    });
-  };
-
-  // Handle night rate cost update
-  const updateNightRateForYear = (year: number, cost: number) => {
-    if (!setNightRate) return;
-    setNightRate({
-      ...nightRate,
-      [year]: cost,
-    });
-  };
-
-  // Calculate cost with night rate support (00:30 - 05:30)
-  const calculateTotalCostWithNightRate = (
-    year: number,
-    totalKwh: number
-  ): number => {
-    const standardRate = costPerKwh[year] || 0;
-    const nightRateValue = nightRate?.[year] || 0;
-    const isNightRateEnabled = nightRateEnabled?.[year] || false;
-
-    if (!isNightRateEnabled || nightRateValue === 0 || standardRate === 0) {
-      // Simple calculation without night rate
-      return totalKwh * standardRate;
-    }
-
-    // Filter data for this year
-    const yearData = data.filter((point) => {
-      const date = new Date(point.date);
-      const pointYear = date.getFullYear();
-      return pointYear === year;
-    });
-
-    // Separate night rate hours (00:30 - 05:30) from standard hours
-    let nightRateKwh = 0;
-    let standardRateKwh = 0;
-
-    yearData.forEach((point) => {
-      const date = new Date(point.date);
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-
-      // Night rate is between 00:30 and 05:30
-      const isNightTime =
-        (hours === 0 && minutes >= 30) || // 00:30-00:59
-        (hours >= 1 && hours < 5) || // 01:00-04:59
-        (hours === 5 && minutes < 30); // 05:00-05:29
-
-      if (isNightTime) {
-        nightRateKwh += point.value;
-      } else {
-        standardRateKwh += point.value;
-      }
-    });
-
-    return standardRateKwh * standardRate + nightRateKwh * nightRateValue;
   };
 
   // Calculate the date range of the data in days
@@ -580,22 +490,22 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
   };
 
   return (
-    <div className="glass-card rounded-2xl p-8 mb-8">
-      <div className="flex flex-col items-center gap-4 mb-8">
-        <h3 className="text-3xl font-bold text-gray-800 text-center">
+    <div className="glass-card rounded-xl p-4 mb-6">
+      <div className="flex flex-col items-center gap-3 mb-6">
+        <h3 className="text-xl font-bold text-gray-800 text-center">
           {title} Usage Over Time
         </h3>
 
         {/* Comparison Mode Selector - Only show if multiple years available */}
         {hasMultipleYears && (
-          <div className="w-full flex flex-col items-center gap-3 pb-4 border-b-2 border-purple-100">
-            <p className="text-sm font-semibold text-gray-600">
+          <div className="w-full flex flex-col items-center gap-2 pb-3 border-b border-purple-100">
+            <p className="text-xs font-semibold text-gray-600">
               📊 Comparison Mode
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-1.5 justify-center">
               <button
                 onClick={() => setComparisonMode("none")}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                   comparisonMode === "none"
                     ? "bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg scale-105"
                     : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -613,7 +523,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                     setComparisonYears(availableYears.slice(0, 2));
                   }
                 }}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                   comparisonMode === "year"
                     ? "bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg scale-105"
                     : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -631,7 +541,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                     setComparisonYears(availableYears.slice(0, 2));
                   }
                 }}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                   comparisonMode === "month"
                     ? "bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg scale-105"
                     : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -645,16 +555,16 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
 
         {/* Year Selection for Comparison */}
         {comparisonMode !== "none" && (
-          <div className="w-full flex flex-col items-center gap-3 pb-4 border-b-2 border-purple-100">
-            <p className="text-sm font-semibold text-gray-600">
+          <div className="w-full flex flex-col items-center gap-2 pb-3 border-b border-purple-100">
+            <p className="text-xs font-semibold text-gray-600">
               Select Years to Compare
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-1.5 justify-center">
               {availableYears.map((year) => (
                 <button
                   key={year}
                   onClick={() => toggleYear(year)}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                     comparisonYears.includes(year)
                       ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-105"
                       : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -669,12 +579,12 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
 
         {/* Month Selection for Month Comparison */}
         {comparisonMode === "month" && (
-          <div className="w-full flex flex-col items-center gap-3 pb-4 border-b-2 border-purple-100">
-            <p className="text-sm font-semibold text-gray-600">Select Month</p>
+          <div className="w-full flex flex-col items-center gap-2 pb-3 border-b border-purple-100">
+            <p className="text-xs font-semibold text-gray-600">Select Month</p>
             <select
               value={comparisonMonth}
               onChange={(e) => setComparisonMonth(Number(e.target.value))}
-              className="px-5 py-3 border-2 border-purple-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium text-center text-lg bg-white"
+              className="px-3 py-2 border border-purple-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium text-center text-sm bg-white"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
                 <option key={month} value={month}>
@@ -689,14 +599,14 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
 
         {/* Chart Type Selector - Only show in normal mode */}
         {comparisonMode === "none" && (
-          <div className="w-full flex flex-col items-center gap-3 pb-4 border-b-2 border-purple-100">
-            <p className="text-sm font-semibold text-gray-600">Chart Type</p>
-            <div className="flex flex-wrap gap-2 justify-center">
+          <div className="w-full flex flex-col items-center gap-2 pb-3 border-b border-purple-100">
+            <p className="text-xs font-semibold text-gray-600">Chart Type</p>
+            <div className="flex flex-wrap gap-1.5 justify-center">
               {chartTypeOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setChartType(option.value)}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                     chartType === option.value
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105"
                       : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -711,14 +621,14 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
 
         {/* Time Range Selector - Only show in normal mode */}
         {comparisonMode === "none" && (
-          <div className="w-full flex flex-col items-center gap-3 pt-2">
-            <p className="text-sm font-semibold text-gray-600">Time Range</p>
-            <div className="flex flex-wrap gap-3 justify-center">
+          <div className="w-full flex flex-col items-center gap-2 pt-1.5">
+            <p className="text-xs font-semibold text-gray-600">Time Range</p>
+            <div className="flex flex-wrap gap-2 justify-center">
               {timeRangeOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setTimeRange(option.value)}
-                  className={`px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                     timeRange === option.value
                       ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg scale-105"
                       : "bg-white/80 text-gray-700 hover:bg-white hover:shadow-md"
@@ -732,8 +642,8 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
         )}
       </div>
       {comparisonMode === "none" && timeRange === "daily" && (
-        <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl flex flex-col items-center">
-          <label className="block text-base font-bold text-gray-800 mb-3">
+        <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg flex flex-col items-center">
+          <label className="block text-sm font-bold text-gray-800 mb-2">
             📅 Select Date:
           </label>
           <input
@@ -742,16 +652,16 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
             min={dateRange.min}
             max={dateRange.max}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-5 py-3 border-2 border-purple-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium text-center text-lg"
+            className="px-3 py-2 border border-purple-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium text-center text-sm"
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 mt-1.5">
             Available: {dateRange.min} to {dateRange.max}
           </p>
         </div>
       )}
       {comparisonMode === "none" && (
-        <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl px-6 py-4 mb-8 text-center mx-auto max-w-md">
-          <p className="text-base font-semibold text-gray-700">
+        <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg px-4 py-2 mb-6 text-center mx-auto max-w-md">
+          <p className="text-sm font-semibold text-gray-700">
             📊 Showing {filteredData.length}{" "}
             {timeRange === "daily" ? "readings" : "data points"}
           </p>
@@ -759,8 +669,8 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
       )}
       {comparisonMode !== "none" && comparisonYears.length > 0 && (
         <>
-          <div className="bg-gradient-to-r from-green-100 to-teal-100 rounded-xl px-6 py-4 mb-6 text-center mx-auto max-w-md">
-            <p className="text-base font-semibold text-gray-700">
+          <div className="bg-gradient-to-r from-green-100 to-teal-100 rounded-lg px-4 py-2 mb-4 text-center mx-auto max-w-md">
+            <p className="text-sm font-semibold text-gray-700">
               🔄 Comparing {comparisonYears.length} year
               {comparisonYears.length > 1 ? "s" : ""}
               {comparisonMode === "month" &&
@@ -773,7 +683,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
 
           {/* Comparison Statistics */}
           {comparisonStats && (
-            <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl mx-auto">
               {[...comparisonYears]
                 .sort((a, b) => a - b)
                 .map((year) => {
@@ -784,27 +694,21 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                   const isDecrease =
                     percentChange !== null && percentChange < 0;
                   const yearCost = costPerKwh[year] || 0;
-                  const isNightRateEnabled = nightRateEnabled?.[year] || false;
-                  const totalCost =
-                    yearCost > 0
-                      ? hasNightRate && isNightRateEnabled
-                        ? calculateTotalCostWithNightRate(year, total)
-                        : total * yearCost
-                      : 0;
+                  const totalCost = yearCost > 0 ? total * yearCost : 0;
 
                   return (
                     <div
                       key={year}
-                      className="glass-card rounded-xl p-5 border-2 border-white/50"
+                      className="glass-card rounded-lg p-3 border border-white/50"
                     >
                       <div className="text-center">
-                        <h4 className="text-xl font-bold text-gray-800 mb-3">
+                        <h4 className="text-base font-bold text-gray-800 mb-2">
                           {year}
                         </h4>
 
                         {/* Cost Input */}
-                        <div className="mb-4 bg-white/60 rounded-lg p-3">
-                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                        <div className="mb-3 bg-white/60 rounded-lg p-2">
+                          <label className="block text-xs font-semibold text-gray-600 mb-0.5">
                             £ Cost per {unit}
                           </label>
                           <input
@@ -819,57 +723,24 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                               )
                             }
                             placeholder="0.00"
-                            className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg text-center font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-2 py-1 border border-purple-200 rounded text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                           />
                         </div>
 
-                        {/* Night Rate Toggle and Input (Electricity only) */}
-                        {hasNightRate && (
-                          <div className="mb-4 bg-indigo-50 rounded-lg p-3 border-2 border-indigo-200">
-                            <label className="flex items-center justify-center gap-2 mb-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isNightRateEnabled}
-                                onChange={() => toggleNightRate(year)}
-                                className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                              />
-                              <span className="text-xs font-bold text-indigo-700">
-                                🌙 Night Rate (00:30-05:30)
-                              </span>
-                            </label>
-                            {isNightRateEnabled && (
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={nightRate?.[year] || ""}
-                                onChange={(e) =>
-                                  updateNightRateForYear(
-                                    year,
-                                    parseFloat(e.target.value) || 0
-                                  )
-                                }
-                                placeholder="0.00"
-                                className="w-full px-3 py-2 border-2 border-indigo-300 rounded-lg text-center font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2"
-                              />
-                            )}
-                          </div>
-                        )}
-
                         {/* Energy Usage */}
-                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent mb-3">
-                          <p className="text-3xl font-extrabold mb-1">
+                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent mb-2">
+                          <p className="text-2xl font-extrabold mb-0.5">
                             {total.toLocaleString()}
                           </p>
-                          <p className="text-sm font-semibold text-gray-600">
+                          <p className="text-xs font-semibold text-gray-600">
                             {unit}
                           </p>
                         </div>
 
                         {/* Total Cost */}
                         {yearCost > 0 && (
-                          <div className="bg-gradient-to-r from-green-500 to-teal-500 bg-clip-text text-transparent mb-3">
-                            <p className="text-2xl font-extrabold">
+                          <div className="bg-gradient-to-r from-green-500 to-teal-500 bg-clip-text text-transparent mb-2">
+                            <p className="text-lg font-extrabold">
                               £
                               {totalCost.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
@@ -885,7 +756,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                         {/* Percentage Change */}
                         {percentChange !== null && (
                           <div
-                            className={`mt-3 px-3 py-2 rounded-lg ${
+                            className={`mt-2 px-2 py-1 rounded-lg ${
                               isIncrease
                                 ? "bg-red-100 text-red-700"
                                 : isDecrease
@@ -893,7 +764,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
                                 : "bg-gray-100 text-gray-700"
                             }`}
                           >
-                            <p className="text-sm font-bold">
+                            <p className="text-xs font-bold">
                               {isIncrease ? "📈 +" : isDecrease ? "📉 " : ""}
                               {Math.abs(percentChange).toFixed(1)}%
                             </p>
@@ -909,7 +780,7 @@ const EnergyChart: React.FC<EnergyChartProps> = ({
         </>
       )}
       <div className="chart-container mx-auto">
-        <ResponsiveContainer width="100%" height={450}>
+        <ResponsiveContainer width="100%" height={350}>
           {comparisonMode !== "none" && comparisonYears.length > 0
             ? renderComparisonChart()
             : renderChart()}
